@@ -1,0 +1,16 @@
+services:
+  edupsy:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      AUTH_SECRET: ${AUTH_SECRET}
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      DATA_DIR: /data
+      AI_BASE_URL: ${AI_BASE_URL:-http://host.docker.internal:8645/v1}
+      AI_API_KEY: ${AI_API_KEY:-local}
+      AUTH_DEV_LOGIN: ${AUTH_DEV_LOGIN:-false}
+    volumes:
+      - edupsy-data:/data
+volumes:
+  edupsy-data:
