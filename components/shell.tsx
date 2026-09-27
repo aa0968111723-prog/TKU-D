@@ -47,9 +47,27 @@ export function Shell({
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [note, setNote] = useState("");
+  const [listening, setListening] = useState(false);
   const focus = path.startsWith("/focus");
   const advanced = settings.disclosure === "full" || path !== "/today";
   const pinned = safeArray(settings.pinned_modules);
+
+  function listen() {
+    const Recognition = (window as unknown as { SpeechRecognition?: new () => SpeechRec; webkitSpeechRecognition?: new () => SpeechRec }).SpeechRecognition
+      || (window as unknown as { webkitSpeechRecognition?: new () => SpeechRec }).webkitSpeechRecognition;
+    if (!Recognition) {
+      setNote("這個瀏覽器沒有語音輸入，直接打字就好。");
+      setOpen(true);
+      return;
+    }
+    const rec = new Recognition();
+    rec.lang = "zh-TW";
+    setListening(true);
+    rec.onresult = (event) => setText(event.results[0]?.[0]?.transcript ?? "");
+    rec.onend = () => setListening(false);
+    rec.start();
+    setOpen(true);
+  }
 
   async function capture(event: React.FormEvent) {
     event.preventDefault();
@@ -93,7 +111,8 @@ export function Shell({
             <div className="cat-panel">
               <p style={{ marginTop: 0 }}>{briefing.speech}</p>
               <form className="capture" onSubmit={capture}>
-                <input value={text} onChange={(event) => setText(event.target.value)} placeholder="想到什麼了？" />
+                <input value={text} onChange={(event) => setText(event.target.value)} placeholder={listening ? "在聽…" : "想到什麼了？"} />
+                <button className="btn-ghost" type="button" onClick={listen}>{listening ? "聽" : "說"}</button>
                 <button className="btn" type="submit">放下</button>
               </form>
               {note && <p className="muted">{note}</p>}
@@ -119,3 +138,10 @@ export function Shell({
 function safeArray(value?: string) {
   try { return JSON.parse(value || "[]") as string[]; } catch { return []; }
 }
+
+type SpeechRec = {
+  lang: string;
+  start: () => void;
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onend: (() => void) | null;
+};

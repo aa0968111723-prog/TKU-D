@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { openDatabase } from "../lib/db";
 import * as repo from "../lib/repo";
+import { taipeiParts } from "../lib/time";
 
 test("users cannot see each other's notes, and Chinese search finds a note", () => {
   const dir = mkdtempSync(path.join(tmpdir(), "edupsy-"));
@@ -22,4 +23,18 @@ test("users cannot see each other's notes, and Chinese search finds a note", () 
   const again = repo.addQuestion(database, String(a.id), String(project.id), "縮小到大一新生的考試焦慮");
   assert.equal(again.version, 2);
   assert.equal(repo.listRevisions(database, String(a.id), "research_question", String(project.id)).length, 2);
+});
+
+test("agenda places a course on its weekday and keeps an open deadline", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "edupsy-"));
+  const database = openDatabase(path.join(dir, "test.sqlite"));
+  const user = repo.createUser(database, { name: "丙", provider: "development", subject: "c" });
+  const userId = String(user.id);
+  const weekday = taipeiParts(new Date()).weekday;
+  repo.createCourse(database, userId, { name: "研究方法", weekday, startTime: "10:00" });
+  const due = new Date(Date.now() + 2 * 86400000).toISOString();
+  repo.createTask(database, userId, { title: "交作業", dueAt: due });
+  const items = repo.agenda(database, userId, new Date().toISOString(), new Date(Date.now() + 8 * 86400000).toISOString());
+  assert.ok(items.some((item) => item.kind === "course" && item.title === "研究方法"));
+  assert.ok(items.some((item) => item.kind === "deadline" && item.title === "交作業"));
 });

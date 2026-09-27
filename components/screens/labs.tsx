@@ -135,12 +135,16 @@ function place(index: number, count: number) {
 }
 
 export function WeeklyScreen() {
-  const { data, reload } = useData<{ facts: { papers: unknown[]; notes: { n: number }; tasksDone: { n: number }; questions: Array<{ version: number; body: string }>; meetings: Array<{ teacher_feedback: string | null }> }; label: string }>("/api/weekly");
+  const { data, reload } = useData<{ facts: { papers: Array<{ title: string }>; notes: { n: number }; tasksDone: { n: number }; questions: Array<{ version: number; body: string }>; meetings: Array<{ teacher_feedback: string | null }> }; label: string; narrative: { summary?: string; stuck?: string; next?: string; unavailable?: string } | null }>("/api/weekly");
   if (!data) return <p className="muted">整理這一週…</p>;
   return (
     <section className="card">
       <h1 style={{ fontFamily: "var(--font-serif)" }}>這一週</h1>
       <p className="muted">{data.label}</p>
+      {data.narrative?.summary && <p>{data.narrative.summary}</p>}
+      {data.narrative?.stuck && <p>卡住的地方：{data.narrative.stuck}</p>}
+      {data.narrative?.next && <p>下週可以先做：{data.narrative.next}</p>}
+      {data.narrative?.unavailable && <p className="warn">{data.narrative.unavailable}</p>}
       <p>新文獻 {data.facts.papers.length}　筆記 {data.facts.notes?.n ?? 0}　完成 {data.facts.tasksDone?.n ?? 0}</p>
       {data.facts.questions.map((item) => <p key={item.version}>研究問題 V{item.version}：{item.body}</p>)}
       {data.facts.meetings.map((item, index) => <p key={index}>老師：{item.teacher_feedback}</p>)}

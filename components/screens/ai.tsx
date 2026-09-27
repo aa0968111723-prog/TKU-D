@@ -17,7 +17,7 @@ export function AiScreen() {
   const [mode, setMode] = useState("research");
   const [text, setText] = useState("");
   const [conversationId, setConversationId] = useState<string>();
-  const [turns, setTurns] = useState<Array<{ role: string; content: string; sections?: Record<string, string> | null }>>([]);
+  const [turns, setTurns] = useState<Array<{ role: string; content: string; sections?: Record<string, string> | null; followups?: string[] }>>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function ask(event: React.FormEvent) {
@@ -29,9 +29,9 @@ export function AiScreen() {
     setBusy(true);
     setError("");
     try {
-      const data = await api<{ conversationId: string; speech: string; sections: Record<string, string> | null; citations: unknown[] }>("/api/chat", { method: "POST", body: JSON.stringify({ message, conversationId, mode }) });
+      const data = await api<{ conversationId: string; speech: string; sections: Record<string, string> | null; followups?: string[] }>("/api/chat", { method: "POST", body: JSON.stringify({ message, conversationId, mode }) });
       setConversationId(data.conversationId);
-      setTurns((items) => [...items, { role: "assistant", content: data.speech, sections: data.sections }]);
+      setTurns((items) => [...items, { role: "assistant", content: data.speech, sections: data.sections, followups: data.followups }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "研究貓暫時沒連上");
     } finally {
@@ -59,6 +59,7 @@ export function AiScreen() {
                   <p><span className="tag">待確認</span> {turn.sections.unverified}</p>
                 </div>
               )}
+              {turn.followups?.map((item) => <button key={item} className="btn-ghost" style={{ marginRight: 6 }} onClick={() => setText(item)}>{item}</button>)}
             </article>
           ))}
           {busy && <Cat pose="loading" size={72} />}

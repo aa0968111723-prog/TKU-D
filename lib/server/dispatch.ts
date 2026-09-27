@@ -12,7 +12,7 @@ import { lookupDoi } from "../integrations/scholarly";
 import { pkceVerifier, probeTku, tkuAuthorizeUrl, tkuExchange, tkuStatus } from "../integrations/tku";
 import { parseCsv } from "../parsers/documents";
 import * as repo from "../repo";
-import { briefingFor, chat, enrichPaper, ingestFile, matrix, methodLab, recommendForIdea, runCapture, suggestCodes } from "../services/engine";
+import { briefingFor, chat, enrichPaper, importUrl, ingestFile, matrix, methodLab, recommendForIdea, runCapture, suggestCodes, weeklyNarrative } from "../services/engine";
 import { addDays } from "../time";
 
 const database = () => db();
@@ -104,7 +104,16 @@ export async function dispatch(req: Request, method: string, parts: string[]): P
     if (root === "tasks" && !a && method === "GET") return json(repo.listTasks(databaseNow, userId, url.searchParams.get("status") ?? "open"));
     if (root === "tasks" && !a && method === "POST") return json(repo.createTask(databaseNow, userId, await bodyOf(req)));
     if (root === "tasks" && a && method === "PATCH") return json(repo.updateTask(databaseNow, userId, a, await bodyOf(req)));
-    if (root === "events" && method === "GET") return json(repo.listEvents(databaseNow, userId, url.searchParams.get("from") ?? undefined, url.searchParams.get("to") ?? undefined));
+    if (root === "events" && method === "GET") {
+      const items = repo.agenda(databaseNow, userId, url.searchParams.get("from") ?? undefined, url.searchParams.get("to") ?? undefined);
+      const load = new Map<string, number>();
+      for (const item of items) {
+        const day = String(item.starts_at).slice(0, 10);
+        load.set(day, (load.get(day) ?? 0) + (item.kind === "deadline" ? 2 : 1));
+      }
+      const openDays = [...load.entries()].filter(([, weight]) => weight <= 1).map(([day]) => day);
+      return json({ items, openDays });
+    }
     if (root === "events" && method === "POST") return json(repo.createEvent(databaseNow, userId, await bodyOf(req)));
     if (root === "meetings" && method === "GET") return json(repo.listMeetings(databaseNow, userId));
     if (root === "meetings" && method === "POST") return json(repo.createMeeting(databaseNow, userId, await bodyOf(req)));
@@ -182,6 +191,7 @@ export async function dispatch(req: Request, method: string, parts: string[]): P
     if (root === "official" && method === "GET") return json(repo.listOfficial(databaseNow, userId));
     if (root === "official" && a === "sync") return syncOfficial(userId);
     if (root === "integrations") return integrations(req, method, userId, parts.slice(1));
+    if (root === "import" && a === "url" && method === "POST") return json(await importUrl(databaseNow, userId, String((await bodyOf(req)).url ?? "")));
     if (root === "memories") return json(repo.listMemories(databaseNow, userId));
     return fail(404, "沒有這個功能", "not_found");
   } catch (error) {
@@ -335,7 +345,8 @@ async function importCitations(userId: string, body: Record<string, unknown>) {
 async function weekly(userId: string) {
   const since = addDays(new Date(), -7).toISOString();
   const facts = repo.weeklyFacts(database(), userId, since);
-  return json({ since, facts, narrative: null, label: "這些數字來自你的資料庫，不是 AI 估計。" });
+  const narrative = await weeklyNarrative(facts).catch((error: unknown) => ({ unavailable: error instanceof Error ? error.message : "AI 沒連上。數字仍然是真的。" }));
+  return json({ since, facts, narrative, label: "數字來自資料庫。敘述只許引用這些數字。" });
 }
 
 async function analyze(userId: string, body: Record<string, unknown>) {

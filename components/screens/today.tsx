@@ -18,6 +18,9 @@ type Today = {
 
 export function TodayScreen() {
   const { data, reload } = useData<Today>("/api/today");
+  const from = new Date().toISOString();
+  const to = new Date(Date.now() + 2 * 86400000).toISOString();
+  const agenda = useData<{ items: Array<{ id: string; title: string; starts_at: string; kind: string }> }>(`/api/events?from=${from}&to=${to}`);
   const [text, setText] = useState("");
   const [speech, setSpeech] = useState("");
   if (!data) return <p className="muted">研究室正在鋪開桌面…</p>;
@@ -53,6 +56,8 @@ export function TodayScreen() {
             </Link>
           ))}
           <p className="muted">另外 {data.briefing.parked} 件已收好，沒有拿來催你。</p>
+          <h3>這兩天的時間軸</h3>
+          {(agenda.data?.items ?? []).slice(0, 6).map((item) => <div className="row" key={item.id}><span>{item.title}</span><span className="muted">{item.starts_at.slice(5, 16).replace("T", " ")} {item.kind}</span></div>)}
         </section>
         <section className="card">
           <h2>今天的課</h2>

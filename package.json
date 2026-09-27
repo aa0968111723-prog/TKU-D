@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test --test-reporter=spec tests/*.test.ts",
     "ai-proxy": "hermes proxy start --provider xai --port 8645",
-    "demo": "node scripts/demo-flow.mjs"
+    "demo": "node scripts/demo-flow.mjs",
+    "browserbase": "node scripts/browserbase.mjs"
   },
   "repository": {
     "type": "git",

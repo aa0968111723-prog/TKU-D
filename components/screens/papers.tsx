@@ -9,6 +9,7 @@ type Paper = { id: string; title: string; year: number | null; authors: string |
 export function PapersScreen() {
   const { data, reload } = useData<Paper[]>("/api/papers");
   const [message, setMessage] = useState("");
+  const [url, setUrl] = useState("");
   async function upload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -27,6 +28,21 @@ export function PapersScreen() {
         <button className="btn" type="submit">上傳並閱讀</button>
         <p className="muted">PDF、Word、簡報、文字、圖片都可以。圖片會請研究貓轉錄看得到的字。</p>
         {message && <p>{message}</p>}
+      </form>
+      <form className="card" style={{ marginBottom: 14, display: "grid", gap: 8 }} onSubmit={async (event) => {
+        event.preventDefault();
+        setMessage("正在讀網頁…");
+        try {
+          await api("/api/import/url", { method: "POST", body: JSON.stringify({ url }) });
+          setMessage("網頁已收進文獻。");
+          setUrl("");
+          reload();
+        } catch (err) {
+          setMessage(err instanceof Error ? err.message : "沒讀到");
+        }
+      }}>
+        <input className="field" placeholder="一篇網頁或公開論文頁" value={url} onChange={(e) => setUrl(e.target.value)} required />
+        <button className="btn-ghost" type="submit">從網址收進來</button>
       </form>
       {(data ?? []).map((paper) => (
         <Link className="card" key={paper.id} href={`/papers/${paper.id}`} style={{ display: "block", marginBottom: 10 }}>
@@ -70,9 +86,16 @@ export function PaperScreen({ id }: { id: string }) {
             <>
               <p><span className="tag">一句話</span> {extraction.one_liner}</p>
               <p><span className="tag moss">AI 整理</span> {extraction.summary_300}</p>
+              <p>目的：{extraction.purpose || "待確認"}</p>
+              <p>問題：{extraction.questions || "待確認"}</p>
+              <p>理論：{extraction.theory || "待確認"}</p>
               <p>方法：{extraction.method || "待確認"}</p>
+              <p>對象：{extraction.participants || "待確認"}　樣本：{extraction.sample_size || "待確認"}</p>
+              <p>工具：{extraction.instruments || "待確認"}</p>
+              <p>統計：{extraction.statistics || "待確認"}</p>
               <p>發現：{extraction.findings || "待確認"}</p>
               <p>限制：{extraction.limitations || "待確認"}</p>
+              <p>未來：{extraction.future_work || "待確認"}</p>
             </>
           ) : <p className="muted">還沒有抽取。上傳時若 AI 沒連上，可以再讀一次。</p>}
           <button className="btn-ghost" onClick={async () => { await api(`/api/papers/${id}/read`, { method: "POST" }); reload(); }}>再讀一次</button>
@@ -107,7 +130,13 @@ export function MatrixScreen() {
               ))}
             </tbody>
           </table>
-          {result.synthesis && <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(result.synthesis, null, 2)}</pre>}
+          {result.synthesis && (
+            <div style={{ marginTop: 12 }}>
+              {Object.entries(result.synthesis).map(([key, value]) => (
+                <p key={key}><strong>{key}</strong><br />{typeof value === "string" ? value : Array.isArray(value) ? value.map(String).join("；") : JSON.stringify(value)}</p>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </>

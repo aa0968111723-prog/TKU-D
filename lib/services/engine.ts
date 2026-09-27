@@ -298,4 +298,31 @@ export async function recommendForIdea(db: Sql, userId: string, ideaId: string) 
   return works;
 }
 
+export async function importUrl(db: Sql, userId: string, url: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("網址不對");
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("只收網頁網址");
+  const res = await fetch(parsed, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "TKU-EduPsy/1.0" } });
+  if (!res.ok) throw new Error(`網頁回應 ${res.status}`);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.byteLength > 1_500_000) throw new Error("網頁太大，沒有整份吃進來");
+  return ingestFile(db, userId, { filename: `${parsed.hostname}.html`, mime: "text/html", bytes });
+}
+
+export async function weeklyNarrative(facts: unknown) {
+  const raw = await complete({
+    reasoning: false,
+    json: true,
+    messages: [
+      { role: "system", content: "寫一週研究回顧。只能使用給定的數字與標題。不能新增文獻，不能改計數，不能責備沒做事。回傳 JSON：summary, stuck, next。資料少就說這週紀錄不多。" },
+      { role: "user", content: JSON.stringify(facts) },
+    ],
+  });
+  return parseJsonBlock(raw) ?? { summary: raw, unverified: "模型沒有給出可解析的結構" };
+}
+
 export { searchWorks };

@@ -45,18 +45,19 @@ export function IdeasScreen() {
 export function CalendarScreen() {
   const from = new Date();
   const to = new Date(Date.now() + 21 * 86400000).toISOString();
-  const { data, reload } = useData<Array<{ id: string; title: string; starts_at: string; kind: string }>>(`/api/events?from=${from.toISOString()}&to=${to}`);
+  const { data, reload } = useData<{ items: Array<{ id: string; title: string; starts_at: string; kind: string }>; openDays: string[] }>(`/api/events?from=${from.toISOString()}&to=${to}`);
   const [title, setTitle] = useState("");
   const [startsAt, setStartsAt] = useState("");
   return (
     <>
       <header className="topbar"><h1>接下來三週</h1></header>
+      <p className="muted">課表和截止會自己出現。比較空的日子：{(data?.openDays ?? []).slice(0, 5).join("、") || "這段都有事，但不代表你該加碼。"}</p>
       <form className="card" style={{ display: "grid", gap: 8 }} onSubmit={async (event) => { event.preventDefault(); await api("/api/events", { method: "POST", body: JSON.stringify({ title, startsAt: new Date(startsAt).toISOString(), kind: "personal" }) }); reload(); }}>
         <input className="field" placeholder="一件行程" value={title} onChange={(e) => setTitle(e.target.value)} />
         <input className="field" type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
         <button className="btn">加上</button>
       </form>
-      {(data ?? []).map((event) => <div className="row" key={event.id}><span>{event.title}</span><span className="muted">{event.starts_at.slice(0, 16).replace("T", " ")}　{event.kind}</span></div>)}
+      {(data?.items ?? []).map((event) => <div className="row" key={event.id}><span>{event.title}</span><span className="muted">{event.starts_at.slice(0, 16).replace("T", " ")}　{event.kind}</span></div>)}
     </>
   );
 }
@@ -79,6 +80,7 @@ export function SearchScreen() {
 export function MoreScreen() {
   const { data, reload } = useData<{ disclosure: string; socratic: number; cat_visible: number; ai_include_sensitive: number; mode: string }>("/api/settings");
   const integrations = useData<{ google: boolean; configured: { google: boolean; tku: boolean } }>("/api/integrations");
+  const memories = useData<Array<{ id: string; layer: string; content: string }>>("/api/memories");
   const [raw, setRaw] = useState("");
   const [mail, setMail] = useState({ to: "", subject: "", body: "" });
   if (!data) return <p className="muted">打開設定…</p>;
@@ -99,6 +101,9 @@ export function MoreScreen() {
         <button className="btn-ghost" onClick={async () => alert(JSON.stringify(await api("/api/integrations/calendar/sync", { method: "POST" })))}>同步行事曆</button>
         <button className="btn-ghost" onClick={async () => alert(JSON.stringify(await api("/api/integrations/gmail/sync", { method: "POST" })))}>整理信件</button>
         <p className="muted">Google：{integrations.data?.google ? "已連接" : "未連接"}。淡江 SSO：{integrations.data?.configured.tku ? "已設定 client" : "尚未取得學校授權"}。</p>
+        <h3>記得的事</h3>
+        {(memories.data ?? []).length === 0 && <p className="muted">研究貓還沒留下長期記憶。對話裡反覆出現的主題，會記在這裡，不會把整段聊天塞進提示。</p>}
+        {(memories.data ?? []).slice(0, 8).map((item) => <p key={item.id}><span className="tag">{item.layer}</span> {item.content}</p>)}
       </section>
       <section className="card" style={{ marginTop: 12, display: "grid", gap: 8 }}>
         <h2>匯入 RIS / BibTeX</h2>

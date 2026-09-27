@@ -25,6 +25,7 @@ export function ResearchScreen({ id }: { id: string }) {
   const { data, reload } = useData<{ id: string; title: string; topic: string | null; next_step: string | null; gaps: string | null; progress: number; questions: Array<{ version: number; body: string; created_at: string }>; papers: Array<{ id: string; title: string; relevance: string | null }>; tasks: Array<{ title: string }>; thesis: Array<{ stage_key: string; title: string; progress: number }> }>(`/api/projects/${id}`);
   const [question, setQuestion] = useState("");
   const [nextStep, setNextStep] = useState("");
+  const [evolution, setEvolution] = useState("");
   if (!data) return <p className="muted">打開研究…</p>;
   return (
     <>
@@ -33,6 +34,11 @@ export function ResearchScreen({ id }: { id: string }) {
         <section className="card">
           <h2>研究問題怎麼變</h2>
           {data.questions.map((item) => <div className="row" key={item.version}><strong>V{item.version}</strong><span>{item.body}</span></div>)}
+          <button className="btn-ghost" disabled={data.questions.length < 2} onClick={async () => {
+            const answer = await api<{ speech: string }>("/api/chat", { method: "POST", body: JSON.stringify({ message: `我的研究問題這些版本怎麼改變？只根據下面版本，不要補沒寫的內容。\n${data.questions.map((item) => `V${item.version}: ${item.body}`).join("\n")}`, projectId: id, mode: "research" }) });
+            setEvolution(answer.speech);
+          }}>這幾版怎麼變</button>
+          {evolution && <p>{evolution}</p>}
           <textarea value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="新的一版。舊版會留下。" />
           <button className="btn" onClick={async () => { await api(`/api/projects/${id}/questions`, { method: "POST", body: JSON.stringify({ body: question }) }); setQuestion(""); reload(); }}>存成下一版</button>
         </section>

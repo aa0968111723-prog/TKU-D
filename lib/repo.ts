@@ -861,3 +861,32 @@ export function weeklyFacts(db: Sql, userId: string, sinceIso: string): Row {
     openTasks: listTasks(db, userId, "open").slice(0, 8),
   };
 }
+
+export function agenda(db: Sql, userId: string, fromIso?: string, toIso?: string): Row[] {
+  const from = fromIso ? new Date(fromIso) : new Date();
+  const to = toIso ? new Date(toIso) : new Date(Date.now() + 21 * 86400000);
+  const items: Row[] = listEvents(db, userId, from.toISOString(), to.toISOString()).map((event) => ({ ...event, source: event.source ?? "local" }));
+  const courses = listCourses(db, userId);
+  const start = taipeiParts(from);
+  let cursor = Date.UTC(start.year, start.month - 1, start.day);
+  const endParts = taipeiParts(to);
+  const end = Date.UTC(endParts.year, endParts.month - 1, endParts.day);
+  for (let guard = 0; cursor <= end && guard < 40; guard += 1) {
+    const date = new Date(cursor);
+    const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+    const weekday = taipeiParts(new Date(`${key}T12:00:00+08:00`)).weekday;
+    for (const course of courses) {
+      if (Number(course.weekday) !== weekday) continue;
+      const clock = String(course.start_time || "09:00");
+      items.push({ id: `course-${course.id}-${key}`, title: course.name, starts_at: new Date(`${key}T${clock.length === 5 ? clock : "09:00"}:00+08:00`).toISOString(), kind: "course", source: "course" });
+    }
+    cursor += 86400000;
+  }
+  for (const task of listTasks(db, userId, "open")) {
+    if (!task.due_at) continue;
+    const due = String(task.due_at);
+    if (due < from.toISOString() || due >= to.toISOString()) continue;
+    items.push({ id: `task-${task.id}`, title: task.title, starts_at: due, kind: "deadline", source: "task" });
+  }
+  return items.sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)));
+}
